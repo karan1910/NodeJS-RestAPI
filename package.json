@@ -17,6 +17,8 @@
     "string-template": "^1.0.0"
   },
   "devDependencies": {
+    "body-parser": "^1.18.1",
+    "mongodb": "^2.2.31",
     "nodemon": "^1.12.0"
   }
 }
