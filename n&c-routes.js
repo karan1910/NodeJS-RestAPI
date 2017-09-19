@@ -19,6 +19,7 @@ MongoClient.connect(url, {
 
 router
     .get('/notes', getNotes)
+    .get('/notes/:noteid', getNote)
     .get('/users/:userid/notes', getUserNotes)
     .post('/users/:userid/notes', createUserNote)
     .put('/users/:userid/notes/:noteid', updateUserNote)
@@ -27,6 +28,7 @@ router
     .post('/notes/:noteid/comments', createNoteComments)
     .put('/notes/:noteid/comments/:commentid', updateNoteComments)
     .delete('/notes/:noteid/comments/:commentid', deleteNoteComment)
+    .get('/notes/:noteid/comments/:commentid', getCommentsOnNote)
     .get('/users/:userid/comments', getUserComments)
     .get('/comments', getComments)
     .get('/users/:userid/notes/:noteid/comments', getUserNoteComments);
@@ -35,7 +37,17 @@ router
 function getNotes(req, res){
     mongodb.collection(notes).find({}).toArray(function(err, result){
         if (err) throw err;
-        console.log('getUsers');
+        console.log('getNotes');
+        res.status(200).send(result);
+    });
+}
+
+function getCommentsOnNote(req, res){
+    var commentid = req.params.commentid;
+    var noteid = req.params.noteid;
+    console.log(commentid);
+    console.log(noteid);
+    mongodb.collection(comments).find({_id : ObjectID(commentid), noteid : noteid}).toArray(function(err, result){
         res.status(200).send(result);
     });
 }
@@ -44,6 +56,14 @@ function getUserNotes(req, res){
     console.log('getUserNotes');
     var userid = req.params.userid;
     mongodb.collection(notes).find({'userid' : userid}).toArray(function(err, result){
+        res.status(200).send(result);
+    });
+}
+
+function getNote(req, res){
+    console.log("getNote");
+    var noteid = req.params.noteid;
+    mongodb.collection(notes).find({_id : ObjectID(noteid)}).toArray(function(err, result){
         res.status(200).send(result);
     });
 }
@@ -80,7 +100,7 @@ function updateUserNote(req, res){
     else if(req.body.content){
         newNote.content = req.body.content;
     }
-    mongodb.collection(userNotesRel).find({'noteID' : noteid, 'userID' : userid}).toArray(function(err, result){
+    mongodb.collection(userNotesRel).find({noteID : noteid, 'userID' : userid}).toArray(function(err, result){
         if(result.length === 0){
             res.status(404).send({'Error' : 'Resource Not Found'});
         }
@@ -95,11 +115,10 @@ function deleteUserNote(req, res){
     console.log('deleteUserNote');
     var userid = req.params.userid;
     var noteid = req.params.noteid;
-    mongodb.collection(userNotesRel).deleteOne({_id : ObjectID(noteid)}, function(err, res){
-        mongodb.collection(notes).deleteOne({_id : ObjectID(noteid)}, function(err, res){
-            res.status(200).status({'status' : 'in-process'});
-        });
-    });
+    mongodb.collection(userNotesRel).deleteOne({noteID : noteid, userID : userid});
+    mongodb.collection(notes).deleteOne({_id : ObjectID(noteid), userid : userid});
+    mongodb.collection(comments).deleteMany({userid : userid, noteid : userid});
+    res.status(200).send({'status' : 'in-process'});
 }
 
 function getNoteComments(req, res){
@@ -130,16 +149,17 @@ function updateNoteComments(req, res){
     if(req.body.content){
         updatedComment.content = req.body.content;
     }
-    mongodb.collection(comments).updateOne({noteid : noteid, commentid : commentid}, {$set : updatedComment}, function(err, result){
+    mongodb.collection(comments).updateOne({noteid : noteid, _id : ObjectID(commentid)}, {$set : updatedComment}, function(err, result){
         if(err) throw err;
         res.status(200).send({'status' : 'in-process'});
     });
 }
 
 function deleteNoteComment(req, res){
+    console.log("deleteNoteComment");
     var commentid = req.params.commentid;
     var noteid = req.params.noteid;
-    mongodb.collection(comments).deleteOne({commentid : commentid, noteid : noteid}, function(err, result){
+    mongodb.collection(comments).deleteOne({noteid : noteid, _id : ObjectID(commentid)}, function(err, result){
         if(err){
             throw err;
         }
@@ -150,14 +170,14 @@ function deleteNoteComment(req, res){
 function getUserComments(req, res){
     var userid = req.params.userid;
     var commentid = req.params.commentid;
-    mongodb.connect(comments).find({userid : userid}).toArray(function(err, result){
+    mongodb.collection(comments).find({userid : userid}).toArray(function(err, result){
         if (err) throw err;
         res.status(200).send(result);
     });
 }
 
 function getComments(req, res){
-    mongodb.connect(comments).find({}).toArray(function(err, result){
+    mongodb.collection(comments).find({}).toArray(function(err, result){
         if (err) throw err;
         res.status(200).send(result);
     });
@@ -166,7 +186,7 @@ function getComments(req, res){
 function getUserNoteComments(req, res){
     var userid = req.params.userid;
     var noteid = req.params.noteid;
-    mongodb.connect(comments).find({userid : userid, noteid : noteid}).toArray(function(err, result){
+    mongodb.collection(comments).find({userid : userid, noteid : noteid}).toArray(function(err, result){
         if (err) throw err;
         res.status(200).send(result);
     });
