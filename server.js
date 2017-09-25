@@ -6,6 +6,6 @@ var bodyParser = require('body-parser');
 
 app.use(bodyParser.json());
 app.use('/users', usersRoutes);
-app.use('/', notesRoutes);
+app.use('/notes', notesRoutes);
 
 var server = app.listen(8081);
